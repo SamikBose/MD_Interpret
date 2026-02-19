@@ -8,64 +8,92 @@ from geomm.superimpose import superimpose
 from geomm.centering import center_around
 from geomm.rmsd import calc_rmsd
 
-colors = ['seagreen', 'tomato', 'dodgerblue', 'chocolate']
-base_path= '/dickson/s1/bosesami/cbrXA/'
-write_path = f'{base_path}/analysis/features/'
+def concat_atom_idxs(residue_array, pdb, label, segname):
 
-sys_dict = {
-           'Protonated': [f'{base_path}/cbrXA_HIS_POPC', 5, 'cbrXA_HIS_POPC', [1110,1111,900,900,900], 'charmm-gui-2451287232/openmm'],
-           'Deprotonated': [f'{base_path}/cbrXA_HIS_Lys196H_POPC', 5, 'cbrXA_HIS_Lys196H_POPC', [1110,1110,900,900,900], 'charmm-gui-2451288367/openmm']
-           }
+    out = []
+    for i, r in enumerate(residue_array):
+        if label == "sidechain_heavy":
+            idxs = pdb.topology.select(f"segname {segname} and residue {r} and sidechain and not element H")
+            out.extend(idxs)
+            
+        elif label == "CA":
+            idxs = pdb.topology.select(f"segname {segname} and residue {r} and name CA")
+            out.extend(idxs)
+                    
 
-for keys in sys_dict.keys():
-    
-    features = {}
-    counter = 0
+        elif label == "backCB":
+            names = ['N', 'CA', 'C', 'O', 'CB']  # Gly will lack CB
+            for nm in names:
+                idx = pdb.topology.select(f"segname {segname} and residue {r} and name {nm}")
+                if idx.size:
+                    out.append(idx[0])
 
-    folder = sys_dict[keys][0]
-    n_runs = sys_dict[keys][1]
-    string = sys_dict[keys][2]
-    charmm_folder = sys_dict[keys][4]
+        elif label == "heavy":
+            idxs = pdb.topology.select(f"segname {segname} and residue {r} and not element H")
+            out.extend(idxs)
 
-    print(f'Running for system: {keys}')
-    for run in range(1,n_runs+1):
-        last_frame = sys_dict[keys][3][run-1]
+        elif label == 'heavywramp':
+            if i < len(residue_array) - 1:  # all but last residue → PROB
+                idxs = pdb.topology.select(f"segname {segname} and residue {r} and not element H")
+            else:  # last residue → PROA
+                idxs = pdb.topology.select(f"segname {segname} and residue {r} and not element H")
+            out.extend(idxs)
 
-        if run <= 2:
-            pdb = mdj.load_pdb(f'{folder}/run{run}/step5_input.pdb')
-            trj_all_frames = mdj.load_dcd(f'{folder}/run{run}/{string}_run{run}_nowater_{last_frame}frames.dcd', top = f'{folder}/run{run}/{string}_run{run}_nowater_frame0.pdb')
-        if run >=3:
-            pdb = mdj.load_pdb(f'{folder}/{charmm_folder}/step5_input.pdb')
-            trj_all_frames = mdj.load_dcd(f'{folder}/{charmm_folder}/{string}_run{run}_nowater_{last_frame}frames.dcd', top=f'{folder}/{charmm_folder}/{string}_run{run}_nowater_frame0.pdb')
+    return np.asarray(out, dtype=int)
+
+
+
+if __name__ == '__main__':
+
+    base_path= '/dickson/s1/bosesami/clr_ramp_work/'
+    MD_data_path = f'{base_path}/standard_MD/'
+    write_path = f'/dickson/s1/bosesami/REVO_tica_attempts/clr_swing_in_out/distance_based/distance_features/'
+
+    sys_dict = {
+               'R1': [f'{MD_data_path}/R1/', 5, 2034, [2000,2000,2000,2000,2000], 'charmm-gui-5614072231/openmm', [1063,1064,1065,1066,1067]],
+               'R3': [f'{MD_data_path}/R3/', 5, 88, [2000,2000,2000,2000,2000], 'charmm-gui-5614871995/openmm', [37,38,39,40,41]]
+               }
+
+    for keys in sys_dict.keys():
         
-        print(f'Trajectory loaded: run{run}...')
+        leu_idx = sys_dict[keys][2]
+        leu_region = np.arange(leu_idx-1, leu_idx+2)
 
-        # Getting the important indices:
-        #bs_idxs = pdb.top.select('segname PROB and name CA and (residue 48 49 50 51 52 53 54 55 56 247 248 249 250 251 252 253 254 255 256 257 258 132 135 136 196 192 283 74 75 333 337 406 405 402)')
+        ramp_idx = np.array(sys_dict[keys][5])
+
+        features = {}
+        folder = sys_dict[keys][0]
+        n_runs = sys_dict[keys][1]
+        charmm_folder = sys_dict[keys][4]
+
+        # Without water all 5 runs have the same topology
+        # Getting the important indices
+        pdb = mdj.load_pdb(f'{folder}/{charmm_folder}/step3_input.pdb')
         
-        #bs_idxs = pdb.top.select('segname PROB and name CA and (residue 48 49 50 51 52 53 54 55 56 252 253 254 255 256 257)')
-        lig_idxs = pdb.top.select('segname PROC and name CA')
-        
-        idxs = pdb.top.select('segname PROB and backbone and (residue 49 50 51 52 53 252 253 254 255 196 192)') 
-        
-        pos = trj_all_frames.xyz
-        unitcell_len = trj_all_frames.unitcell_lengths
-        n_frames = trj_all_frames.n_frames
-        
-        features[run]  = np.zeros((n_frames, lig_idxs.shape[0]*idxs.shape[0]))
+        leu_region_idxs = concat_atom_idxs(residue_array=leu_region, pdb=pdb, label="backCB",segname='PROB')
+        ramp_region_idxs = concat_atom_idxs(residue_array=ramp_idx, pdb=pdb, label="CA", segname='PROA')
 
+        print(leu_region_idxs.shape, ramp_region_idxs.shape)
 
-        print(f'Calculating features for run{run}...')
-        for frame in range(n_frames):
-            grouped_walker_pos = group_pair(pos[frame], unitcell_len[frame], idxs,lig_idxs)
+        print(f'Running for system: {keys}')
+        for run in range(1,n_runs+1):
 
-            counter = 0
+            trj_all_frames = mdj.load_dcd(f'{folder}/{charmm_folder}/run{run}.dcd', top = f'{folder}/{charmm_folder}/step3_input.pdb')
 
-            # For Distance Features
-            for lig_atom in lig_idxs: 
-                for bs_atom in idxs:
-                    features[run][frame,counter] = np.sqrt(np.sum(np.square(grouped_walker_pos[lig_atom] - grouped_walker_pos[bs_atom])))
-                    counter += 1
+            print(f'Trajectory loaded: run{run}...')
+            pos = trj_all_frames.xyz
+            unitcell_len = trj_all_frames.unitcell_lengths
+            n_frames = trj_all_frames.n_frames
 
-        print(f'Run{run}: Done...')
-    pkl.dump(features, open(f'{write_path}/Hist_dist_feat_{idxs.shape[0]*lig_idxs.shape[0]}dim_{keys}_all{n_runs}runs.pkl','wb'))
+            features[run]  = np.zeros((n_frames, leu_region_idxs.shape[0]*ramp_region_idxs.shape[0]))
+
+            print(f'Calculating features for run{run}...')
+            for frame in range(n_frames):
+                grouped_walker_pos = group_pair(pos[frame], unitcell_len[frame], leu_region_idxs, ramp_region_idxs)
+                # For Distance Features
+                for counter, clr_atom in enumerate(leu_region_idxs): 
+                    for ramp_atom in ramp_region_idxs:
+                        features[run][frame,counter] = np.sqrt(np.sum(np.square(grouped_walker_pos[clr_atom] - grouped_walker_pos[ramp_atom])))
+
+            print(f'Run{run}: Done...')
+        pkl.dump(features, open(f'{write_path}/{keys}_clrBackboneCB_rampCA_distances_{leu_region_idxs.shape[0]*ramp_region_idxs.shape[0]}dim.pkl','wb'))
