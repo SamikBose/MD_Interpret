@@ -87,51 +87,24 @@ def get_fe_max_val(info, num_bin, num_system, scale_up_fe):
     return fe, max_val
 
 
-def get_clean_ticks(bins1, bins2, num_ticks):
+def get_clean_ticks(bins1, bins2, xtick_stride, ytick_stride):
 
     x_ticks = [i for i in bin1]
     y_ticks = [i for i in bin2]
 
 
-    # The following four lines sets the limit of the axes.
-    # The assumption is (which is mostly true) that the minimum value of tica vector is -ve 
-    # and the maximum value of tica vector is +ve.
-
-    # If you have a different range, please be mindful. 
-    # The rule of thumb is; if +ve use np.ceil, if -ve use np.floor
     xtick_max = np.ceil(np.max(x_ticks))
     xtick_min = np.floor(np.min(x_ticks))
     ytick_max = np.ceil(np.max(y_ticks))
     ytick_min = np.floor(np.min(y_ticks))
     
     
-    #range_x = xtick_max - xtick_min
-    #range_y = ytick_max - ytick_min
-    # 
-    #print(range_x, range_y)
-    #xtick_max = np.round(np.max(x_ticks))
-    #xtick_min = int(np.min(x_ticks))
-    #ytick_max = np.round(np.max(y_ticks))
-    #ytick_min = int(np.min(y_ticks))
     
-    #xtick_max = x_ticks[-1]
-    #xtick_min = x_ticks[0]
-    #ytick_max = y_ticks[-1]
-    #ytick_min = y_ticks[0]
-
-    #print(xtick_max, xtick_min)
-    #print(ytick_max, ytick_min)
-    
-    x_ticks_mod = np.arange(start=xtick_min, stop=xtick_max, step=1)
-    y_ticks_mod = np.arange(start=ytick_min, stop=ytick_max, step=1)
+    x_ticks_mod = np.arange(start=xtick_min, stop=xtick_max, step=xtick_stride)
+    y_ticks_mod = np.arange(start=ytick_min, stop=ytick_max, step=ytick_stride)
 
     x_ticks_mod = x_ticks_mod[1:]
     y_ticks_mod = y_ticks_mod[1:]
-    #x_ticks_mod = np.linspace(xtick_max, xtick_min, num = num_ticks)
-    #y_ticks_mod = np.linspace(ytick_max, ytick_min, num = num_ticks)
-   
-    #print(x_ticks_mod)
-    #print(y_ticks_mod)
 
     ticklabels_list = [x_ticks_mod.astype(int), y_ticks_mod.astype(int)]
 
@@ -152,12 +125,12 @@ def get_clean_ticks(bins1, bins2, num_ticks):
 
 if __name__ == '__main__':
 
-    base_path= '/dickson/s1/bosesami/CTR/'
-    tica_path = f'{base_path}/analyze_sf_MD/tica/'
-    fig_out_path = f'{base_path}/analyze_sf_MD/FE_tica' 
+    base_path= '/dickson/s1/bosesami/REVO_tica_attempts/clr_swing_in_out/distance_based'
+    tica_path = f'{base_path}/tica/'
+    fig_out_path = f'{base_path}/tica/' 
 
-    inp_string = 'coTICA_TM6_coord_feats_all_systems'
-    out_string = 'TM6_coord_ticaFE'
+    inp_string = 'coTICA_clrBackboneCB_rampCA_distancefeat_allsystems'
+    out_string = 'clr_ramp_distancebased_ticaFE'
 
     num_bin = int(sys.argv[1])
     tau = int(sys.argv[2])
@@ -169,14 +142,10 @@ if __name__ == '__main__':
     scale_up_fe = 0.1 # test this number
 
     # load the data
-    # his-to-break distance based tica 
-    #tic_all = pkl.load(open(f'{tica_path}/coTICA_His_DistanceBased_{ntica}nTIC_{tau}lag.pkl','rb'))
-
     tic_all = pkl.load(open(f'{tica_path}/{inp_string}_{ntica}nTIC_{tau}lag.pkl','rb'))
 
     # gives you a range for computing the histograms after considering all the systems.
     axes_ranges = min_max_axes(tic_all, Ntic1, Ntic2)
-
     
     hist_dict = {}
 
@@ -210,7 +179,7 @@ if __name__ == '__main__':
     bin2 = np.round(bin2_c, decimals=2)
 
     # get the ticklabels and positions for a clean plotting
-    ticklabels_list , tickpositions_list = get_clean_ticks(bins1, bins2, 4)
+    ticklabels_list , tickpositions_list = get_clean_ticks(bins1, bins2, xtick_stride=1, ytick_stride=2)
 
 
     for i,system in enumerate(tic_all.keys()):

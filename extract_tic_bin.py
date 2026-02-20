@@ -42,29 +42,28 @@ def frames_in_2d_bin(tica_arr, bin_center, bin_width):
 
 if __name__ == '__main__':
 
-    base_path= '/dickson/s1/bosesami/cbrXA/'
-    analysis_path = f'{base_path}/analysis'
-    tica_path = f'{analysis_path}/tica'
-    #out_str = 'his_coord_feats_all_runs'
-    # the main dictionary containing all the bookkeepping information
-    sys_dict = {
-               'Protonated': [f'{base_path}/cbrXA_HIS_POPC', 5, 'cbrXA_HIS_POPC', [1110,1111,900,900,900], 'charmm-gui-2451287232/openmm'],
-               'Deprotonated': [f'{base_path}/cbrXA_HIS_Lys196H_POPC', 5, 'cbrXA_HIS_Lys196H_POPC', [1110,1110,900,900,900], 'charmm-gui-2451288367/openmm']
-               }
-
-    traj_out_path = f'{analysis_path}/FE_tica'
-
-    #inp_string = 'coTICA_his_coord_based'
-    inp_string = 'coTICA_Break_heavyCoordBased'
-    #out_string = 'his_coord_coTICA'
-    out_string = 'break_coord_coTICA'
-
+    base_path = '/dickson/s1/bosesami/REVO_tica_attempts/clr_swing_in_out/distance_based'
+    MD_data_path = f'/dickson/s1/bosesami/clr_ramp_work/standard_MD/'
+    tica_path = f'{base_path}/tica'
     
+    # the main dictionary containing all the bookkeepping information
+    out_string = 'clrBackboneCB_rampCA_distance_cotica'
+    inp_string = 'coTICA_clrBackboneCB_rampCA_distancefeat_allsystems'
+
+    sys_dict = {
+               'R1': [f'{MD_data_path}/R1/', 5, 2034, [2000,2000,2000,2000,2000], 'charmm-gui-5614072231/openmm', [1063,1064,1065,1066,1067]],
+               'R3': [f'{MD_data_path}/R3/', 5, 88, [2000,2000,2000,2000,2000], 'charmm-gui-5614871995/openmm', [37,38,39,40,41]]
+               }
+    
+    traj_out_path = f'{base_path}/FE_tica_snaps'
+
+   
+    ### Important bin centers: Get these from the corresponding free energy plots.
     keys = sys.argv[1]
     bin_center = [float(sys.argv[2]), float(sys.argv[3])]
     bin_width = [float(sys.argv[4]), float(sys.argv[5])]
     
-    tica_dict = pkl.load(open(f'{tica_path}/{inp_string}_2nTIC_100lag.pkl', 'rb'))
+    tica_dict = pkl.load(open(f'{tica_path}/{inp_string}_2nTIC_1lag.pkl', 'rb'))
 
     folder = sys_dict[keys][0]
     n_runs = sys_dict[keys][1]
@@ -82,13 +81,10 @@ if __name__ == '__main__':
         idxs = frames_in_2d_bin(tica_arr, bin_center=bin_center, bin_width=bin_width)
         if len(idxs) > 0:
             print(f'Snapshots in the bin of {bin_center} with width {bin_width}: {len(idxs)}')
-            if run <= 2:
-                trj = mdj.load_dcd(f'{folder}/run{run}/{string}_run{run}_nowater_{last_frame}frames.dcd', top = f'{folder}/run{run}/{string}_run{run}_nowater_frame0.pdb')
-            if run >=3:
-                trj = mdj.load_dcd(f'{folder}/{charmm_folder}/{string}_run{run}_nowater_{last_frame}frames.dcd', top=f'{folder}/{charmm_folder}/{string}_run{run}_nowater_frame0.pdb')
-            
+            trj = mdj.load_dcd(f'{folder}/{charmm_folder}/run{run}.dcd', top = f'{folder}/{charmm_folder}/step3_input.pdb')
+
             sliced = trj.slice(idxs)
-            imp_atoms = sliced.topology.select('segname PROA PROB PROC')
+            imp_atoms = sliced.topology.select('segname PROA PROB')
             sliced_protein = sliced.atom_slice(imp_atoms)
             extract_traj.append(sliced_protein)
 

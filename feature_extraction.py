@@ -7,6 +7,7 @@ from geomm.rmsd import calc_rmsd
 
 
 def ref_centered_pose(pos, alignment_idxs = None, frame_idx = None):
+    
     """For a snapshot, this centers the snapshot around a
     set of provided atom indices. 
     This function is often handy to create a refernce, centered 
@@ -243,3 +244,100 @@ def rmsd_all_frames(coords, ref_coords,unitcell_length, alignment_idxs, pair_idx
 
     return rmsd_list
 
+def concat_atom_idxs(residue_array, pdb, label, segname):
+    
+    """
+
+    Written by Ceren Kilinc: 
+
+    Concatenate atom indices for a specified set of residues and atom selection type.
+
+    This utility function collects atom indices from a PDB topology for a given
+    segment and residue list, according to a predefined selection label.
+    It is typically used to define structural regions (e.g., backbone + CB atoms)
+    for analysis, distance metrics, or collective variables.
+
+    Parameters
+    ----------
+    residue_array : iterable of int
+        Residue indices (as defined in the PDB topology) for which atom indices
+        should be collected.
+
+    pdb : object
+        A structure object containing a `topology` attribute with a `.select()`
+        method (e.g., MDTraj trajectory or PDB object). The topology must support
+        selection strings of the form used in MDTraj.
+
+    label : str
+        Atom selection mode. Supported values:
+
+        - "sidechain_heavy"
+            All non-hydrogen sidechain atoms.
+        - "CA"
+            Alpha carbon only.
+        - "backCB"
+            Backbone heavy atoms (N, CA, C, O) plus CB.
+            Note: Glycine residues will not include CB.
+        - "heavy"
+            All non-hydrogen atoms in the residue.
+        - "heavywramp"
+            Same as "heavy" (placeholder for region-specific logic).
+
+    segname : str
+        Segment name used in topology selection (e.g., 'PROA', 'PROB').
+
+    Returns
+    -------
+    numpy.ndarray
+        1D array of integer atom indices corresponding to the selected atoms,
+        concatenated across all residues in `residue_array`.
+
+    Notes
+    -----
+    - Atom indices are returned in the order they are encountered in
+      `residue_array`.
+    - No duplicate filtering is performed.
+    - If a requested atom name is not present (e.g., CB in glycine),
+      it is silently skipped.
+    - Selection syntax assumes MDTraj-style topology queries.
+
+    Example
+    -------
+    >>> leu_region_idxs = concat_atom_idxs(
+    ...     residue_array=leu_region,
+    ...     pdb=pdb,
+    ...     label="backCB",
+    ...     segname="PROB"
+    ... )
+    """
+    
+    out = []
+    for i, r in enumerate(residue_array):
+        if label == "sidechain_heavy":
+            idxs = pdb.topology.select(f"segname {segname} and residue {r} and sidechain and not element H")
+            out.extend(idxs)
+
+        elif label == "CA":
+            idxs = pdb.topology.select(f"segname {segname} and residue {r} and name CA")
+            out.extend(idxs)
+
+
+        elif label == "backCB":
+            names = ['N', 'CA', 'C', 'O', 'CB']  # Gly will lack CB
+            for nm in names:
+                idx = pdb.topology.select(f"segname {segname} and residue {r} and name {nm}")
+                if idx.size:
+                    out.append(idx[0])
+
+        elif label == "heavy":
+            idxs = pdb.topology.select(f"segname {segname} and residue {r} and not element H")
+            out.extend(idxs)
+
+        elif label == 'heavywramp':
+            if i < len(residue_array) - 1:  # all but last residue → PROB
+                idxs = pdb.topology.select(f"segname {segname} and residue {r} and not element H")
+            else:  # last residue → PROA
+                idxs = pdb.topology.select(f"segname {segname} and residue {r} and not element H")
+            out.extend(idxs)
+
+    return np.asarray(out, dtype=int)
