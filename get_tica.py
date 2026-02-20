@@ -128,12 +128,12 @@ def predict_tica_vectors(model, co_tica_system_dict, inp_folder_path, input_str 
     for keys in co_tica_system_dict.keys():
         tica_feats[keys] = {}
 
-        filename = f'{inp_path}/{keys}_{input_str}.pkl'
+        filename = f'{inp_folder_path}/{keys}_{input_str}.pkl'
         feat_dict = pkl.load(open(filename, 'rb'))
 
         for runs in feat_dict.keys():
             print(f'System:{keys}, run{runs}...')
-            run_feat_arr = feat_dict[runs].reshape(feat_dict[runs].shape[0], n_features*n_reshape)
+            run_feat_arr = feat_dict[runs].reshape(feat_dict[runs].shape[0], num_features*num_reshape)
             tica_feats[keys][runs] = [model.transform(item) for item in run_feat_arr]
 
     return tica_feats
